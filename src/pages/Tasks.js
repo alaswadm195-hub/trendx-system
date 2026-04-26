@@ -22,6 +22,8 @@ export default function Tasks({ user, setUser }) {
 
   const isAdmin = user?.email === "admin@gmail.com";
 
+  const isMobile = window.innerWidth < 768;
+
   // 🔥 تحميل + ترحيل + حذف القديم
   const loadTasksByDate = async (selectedDate) => {
     setDate(selectedDate);
@@ -43,7 +45,6 @@ export default function Tasks({ user, setUser }) {
         if (task.status !== "done" && !task.deleted) {
           await addDoc(todayRef, task);
 
-          // 🔥 مسح من اليوم القديم
           await updateDoc(
             doc(db, "tasks_by_date", yDate, "tasks", d.id),
             { deleted: true }
@@ -64,7 +65,6 @@ export default function Tasks({ user, setUser }) {
     });
   };
 
-  // ➕ Add Task
   const addTask = async () => {
     if (!form.title || !date) return;
 
@@ -76,14 +76,9 @@ export default function Tasks({ user, setUser }) {
       deleted: false,
     });
 
-    setForm({
-      title: "",
-      client: "",
-      assigned: "",
-    });
+    setForm({ title: "", client: "", assigned: "" });
   };
 
-  // 🔄 تغيير الحالة
   const changeStatus = async (task, status) => {
     if (!task?.id || !date) return;
 
@@ -93,7 +88,6 @@ export default function Tasks({ user, setUser }) {
     );
   };
 
-  // 🗑 حذف
   const deleteTask = async (task) => {
     await updateDoc(
       doc(db, "tasks_by_date", date, "tasks", task.id),
@@ -101,7 +95,6 @@ export default function Tasks({ user, setUser }) {
     );
   };
 
-  // 🎯 فلترة
   const myTasks = isAdmin
     ? tasks
     : tasks.filter(
@@ -134,9 +127,13 @@ export default function Tasks({ user, setUser }) {
         style={input}
       />
 
-      {/* Add */}
       {isAdmin && (
-        <div style={addBox}>
+        <div
+          style={{
+            ...addBox,
+            flexDirection: isMobile ? "column" : "row",
+          }}
+        >
           <input
             placeholder="اسم المهمة"
             value={form.title}
@@ -170,13 +167,16 @@ export default function Tasks({ user, setUser }) {
         </div>
       )}
 
-      <div style={board}>
-        {/* To Do */}
-        <Column title="To Do" tasks={pending}>
+      <div
+        style={{
+          ...board,
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+        }}
+      >
+        <Column title="To Do" tasks={pending} isMobile={isMobile}>
           {(task) =>
             isAdmin ? (
               <>
-                <button style={editBtn}></button>
                 <button
                   style={deleteBtn}
                   onClick={() => deleteTask(task)}
@@ -189,14 +189,13 @@ export default function Tasks({ user, setUser }) {
                 style={startBtn}
                 onClick={() => changeStatus(task, "in_progress")}
               >
-                Start 
+                Start
               </button>
             )
           }
         </Column>
 
-        {/* In Progress */}
-        <Column title="In Progress" tasks={inProgress}>
+        <Column title="In Progress" tasks={inProgress} isMobile={isMobile}>
           {(task) =>
             isAdmin ? (
               <>
@@ -219,14 +218,13 @@ export default function Tasks({ user, setUser }) {
                 style={doneBtn}
                 onClick={() => changeStatus(task, "done")}
               >
-                Done 
+                Done
               </button>
             )
           }
         </Column>
 
-        {/* Done */}
-        <Column title="Done" tasks={done}>
+        <Column title="Done" tasks={done} isMobile={isMobile}>
           {(task) =>
             isAdmin && (
               <>
@@ -236,7 +234,7 @@ export default function Tasks({ user, setUser }) {
                     changeStatus(task, "in_progress")
                   }
                 >
-                   مراجعة
+                  مراجعة
                 </button>
 
                 <button
@@ -255,17 +253,28 @@ export default function Tasks({ user, setUser }) {
 }
 
 /* Column */
-function Column({ title, tasks, children }) {
+function Column({ title, tasks, children, isMobile }) {
   return (
-    <div style={column}>
+    <div
+      style={{
+        ...column,
+        height: isMobile ? "auto" : "70vh",
+      }}
+    >
       <h2 style={columnTitle}>{title}</h2>
 
       <div style={scroll}>
         {tasks.map((task) => (
-          <div key={task.id} style={card}>
+          <div
+            key={task.id}
+            style={{
+              ...card,
+              fontSize: isMobile ? "16px" : "14px",
+            }}
+          >
             <h4>{task.title}</h4>
-            <p> {task.client}</p>
-            <p> {task.assigned}</p>
+            <p>{task.client}</p>
+            <p>{task.assigned}</p>
 
             <div style={actions}>{children(task)}</div>
           </div>
@@ -287,7 +296,6 @@ const title = { marginBottom: "10px" };
 
 const board = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, 1fr)",
   gap: "20px",
   marginTop: "20px",
 };
@@ -296,7 +304,6 @@ const column = {
   background: "#ecf0f1",
   padding: "15px",
   borderRadius: "12px",
-  height: "70vh",
   display: "flex",
   flexDirection: "column",
 };
@@ -322,18 +329,21 @@ const actions = {
   marginTop: "10px",
   display: "flex",
   gap: "5px",
+  flexWrap: "wrap",
 };
 
 const addBox = {
   display: "flex",
   gap: "10px",
   marginTop: "10px",
+  flexWrap: "wrap",
 };
 
 const input = {
   padding: "10px",
   borderRadius: "8px",
   border: "1px solid #ccc",
+  width: "100%",
 };
 
 const addBtn = {
