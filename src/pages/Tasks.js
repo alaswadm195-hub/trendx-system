@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import emailjs from "@emailjs/browser";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
 import {
@@ -9,9 +10,28 @@ import {
   updateDoc,
   getDocs,
 } from "firebase/firestore";
+emailjs.init("YmpfTPMnLClHNH-0K");
 
 export default function Tasks({ user, setUser }) {
   const [tasks, setTasks] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  useEffect(() => {
+  const fetchEmployees = async () => {
+    const querySnapshot = await getDocs(
+      collection(db, "employees")
+    );
+
+    const list = [];
+
+    querySnapshot.forEach((doc) => {
+      list.push(doc.data().email);
+    });
+
+    setEmployees(list);
+  };
+
+  fetchEmployees();
+}, []);
   const [date, setDate] = useState("");
 
   const [form, setForm] = useState({
@@ -66,18 +86,45 @@ export default function Tasks({ user, setUser }) {
   };
 
   const addTask = async () => {
-    if (!form.title || !date) return;
+  try {
 
-    await addDoc(collection(db, "tasks_by_date", date, "tasks"), {
-      title: form.title,
-      client: form.client,
-      assigned: form.assigned.toLowerCase(),
-      status: "pending",
-      deleted: false,
+    // 🔥 إضافة التاسك في Firebase
+    await addDoc(
+      collection(db, "tasks_by_date", date, "tasks"),
+      {
+        title: form.title,
+        client: form.client,
+        assigned: form.assigned,
+        status: "pending",
+        createdAt: new Date(),
+      }
+    );
+
+    // 🔥 إرسال الإيميل
+    await emailjs.send(
+      "service_5u44bvm",
+      "template_2e2qgq2",
+      {
+        task: form.title,
+        client: form.client,
+        employee: form.assigned,
+        to_email: form.assigned,
+      }
+    );
+
+    console.log("Email Sent ✅");
+
+    // 🔥 تفريغ الفورم
+    setForm({
+      title: "",
+      client: "",
+      assigned: "",
     });
 
-    setForm({ title: "", client: "", assigned: "" });
-  };
+  } catch (err) {
+    console.log("Error ❌", err);
+  }
+};
 
   const changeStatus = async (task, status) => {
     if (!task?.id || !date) return;
@@ -152,14 +199,20 @@ export default function Tasks({ user, setUser }) {
             style={input}
           />
 
-          <input
-            placeholder="اسم او ايميل الموظف"
-            value={form.assigned}
-            onChange={(e) =>
-              setForm({ ...form, assigned: e.target.value })
-            }
-            style={input}
-          />
+          <select
+  value={form.assigned}
+  onChange={(e) =>
+    setForm({ ...form, assigned: e.target.value })
+  }
+>
+  <option value="">اختر الموظف</option>
+
+  {employees.map((email, index) => (
+    <option key={index} value={email}>
+      {email}
+    </option>
+  ))}
+</select>
 
           <button onClick={addTask} style={addBtn}>
             + Add
